@@ -38,7 +38,7 @@ struct Value {
 	void build_topo(Value* v, std::vector<Value*>& topo, std::unordered_set<Value*>& visited) {
 		if (!visited.contains(v)) {
 			visited.insert(v);
-			for (auto child : v->_children) {
+			for (const auto& child : v->_children) {
 				build_topo(child.get(), topo, visited);
 			}
 			topo.push_back(v);
@@ -57,6 +57,9 @@ struct Value {
 		}
 	}
 };
+
+//---------Mathematical Functions starts here-----------
+//Tanh Activation Function
 inline ValuePtr activation(const ValuePtr& x)
 {
 	f32 t = std::tanh(x->data);
@@ -66,9 +69,53 @@ inline ValuePtr activation(const ValuePtr& x)
 		x->grad += (1.0f - t * t) * o->grad;
 		};
 	return out;
-
+}
+// Exponential e^(x)
+inline ValuePtr exponential(const ValuePtr& x)
+{
+	f32 t = std::exp(x->data);
+	auto out = std::make_shared<Value>(t, std::unordered_set<ValuePtr>{ x }, "exp");
+	Value* o = out.get();
+	out->_backward = [x, o, t] {
+		x->grad += t * o->grad;
+	};
+	return out;
 }
 
+// Division a/b
+inline ValuePtr operator/(const ValuePtr& a, const ValuePtr& b)
+{
+	auto out = std::make_shared<Value>((a * power(b, -1)),
+		std::unordered_set<ValuePtr>{ a, b }, "/");
+	return out;
+
+}
+// Negation Function  
+inline ValuePtr negation(const ValuePtr& a)
+{
+	auto out = std::make_shared<Value>( (-1 * a->data),
+		std::unordered_set<ValuePtr>{ a}, "Negation");
+	return out;
+}
+//Subtraction 
+inline ValuePtr operator-(const ValuePtr& a, const ValuePtr& b)
+{
+	auto out = std::make_shared<Value>((a->data + negation(b)),
+		std::unordered_set<ValuePtr>{ a }, "Subtraction");
+}
+// Power a^b, used for division too
+inline ValuePtr power(const ValuePtr& x, f32 n)
+{
+	f32 t = std::pow(x->data, n);
+	auto out = std::make_shared<Value>(t, std::unordered_set<ValuePtr>{ x }, "power");
+	Value* o = out.get();
+	out->_backward = [x, o,n] {
+		x->grad += n * std::pow(x->data, (n - 1)) * o->grad;
+	};
+	return out;
+}
+
+// Addition 
 inline ValuePtr operator+(const ValuePtr& a, const ValuePtr& b)
 {
 	auto out = std::make_shared<Value>(a->data + b->data,
@@ -81,6 +128,17 @@ inline ValuePtr operator+(const ValuePtr& a, const ValuePtr& b)
 
 	return out;
 }
+// Value of a + some float number will be converted to Value Type
+inline ValuePtr operator+(const ValuePtr& a, f32 b)
+{
+	return a + std::make_shared<Value>(b);
+}
+// float + Value 
+inline ValuePtr operator+(f32 a, const ValuePtr& b)
+{
+	return std::make_shared<Value>(a) + b;
+}
+//Multiplication 
 inline ValuePtr operator*(const ValuePtr& a, const ValuePtr& b)
 {
 	auto out = std::make_shared<Value>(a->data * b->data,
@@ -91,5 +149,15 @@ inline ValuePtr operator*(const ValuePtr& a, const ValuePtr& b)
 		b->grad += a->data * o->grad;
 	};
 	return out;
+}
+// Look at Addition Functions :)
+inline ValuePtr operator*(const ValuePtr& a, f32 b)
+{
+	return a * std::make_shared<Value>(b);
+}
+
+inline ValuePtr operator*(f32 a, const ValuePtr& b)
+{
+	return std::make_shared<Value>(a) * b;
 }
 
