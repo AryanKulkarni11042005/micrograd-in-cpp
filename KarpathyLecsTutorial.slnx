@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="KarpathyLecsTutorial.vcxproj" Id="4ea93a09-31ad-45a3-975d-52c52572b30e" />
+</Solution>
