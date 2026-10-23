@@ -10,6 +10,7 @@
 #include <functional>
 #include <algorithm>
 #include <vector>
+#include <random>
 using f32 = float;
 
 
@@ -82,38 +83,19 @@ inline ValuePtr exponential(const ValuePtr& x)
 	return out;
 }
 
-// Division a/b
-inline ValuePtr operator/(const ValuePtr& a, const ValuePtr& b)
-{
-	auto out = std::make_shared<Value>((a * power(b, -1)),
-		std::unordered_set<ValuePtr>{ a, b }, "/");
-	return out;
-
-}
-// Negation Function  
-inline ValuePtr negation(const ValuePtr& a)
-{
-	auto out = std::make_shared<Value>( (-1 * a->data),
-		std::unordered_set<ValuePtr>{ a}, "Negation");
-	return out;
-}
-//Subtraction 
-inline ValuePtr operator-(const ValuePtr& a, const ValuePtr& b)
-{
-	auto out = std::make_shared<Value>((a->data + negation(b)),
-		std::unordered_set<ValuePtr>{ a }, "Subtraction");
-}
 // Power a^b, used for division too
+
 inline ValuePtr power(const ValuePtr& x, f32 n)
 {
 	f32 t = std::pow(x->data, n);
 	auto out = std::make_shared<Value>(t, std::unordered_set<ValuePtr>{ x }, "power");
 	Value* o = out.get();
-	out->_backward = [x, o,n] {
+	out->_backward = [x, o, n] {
 		x->grad += n * std::pow(x->data, (n - 1)) * o->grad;
-	};
+		};
 	return out;
 }
+
 
 // Addition 
 inline ValuePtr operator+(const ValuePtr& a, const ValuePtr& b)
@@ -161,3 +143,47 @@ inline ValuePtr operator*(f32 a, const ValuePtr& b)
 	return std::make_shared<Value>(a) * b;
 }
 
+// Negation: -a = a * -1
+inline ValuePtr operator-(const ValuePtr& a)
+{
+	return a * -1.0f;
+}
+// Subtraction: a - b = a + (-b)
+inline ValuePtr operator-(const ValuePtr& a, const ValuePtr& b)
+{
+	return a + (-b);
+}
+// Division: a / b = a * b^-1
+inline ValuePtr operator/(const ValuePtr& a, const ValuePtr& b)
+{
+	return a * power(b, -1.0f);
+}
+
+// NEURON CLASS 
+inline f32 random_uniform(f32 lo, f32 hi)
+{
+	static std::mt19937 gen(std::random_device{}());
+	std::uniform_real_distribution<f32> dist(lo, hi);
+	return dist(gen);
+}
+struct Neuron
+{
+	std::vector<ValuePtr> w;
+	ValuePtr b;
+
+	Neuron(int nin)
+	{
+		for (int i = 0; i < nin; i++)
+		{
+			w.push_back(std::make_shared<Value>(random_uniform(-1, 1)));
+		}
+		b = std::make_shared<Value>(random_uniform(-1, 1));
+	}
+	ValuePtr operator()(const std::vector<ValuePtr>& x)
+	{
+		for (size_t i = 0; i < w.size(); i++)
+			std::cout << "(" << w[i]->data << ", " << x[i]->data << ")\n";
+
+		return std::make_shared<Value>(0.0f);
+	}
+};

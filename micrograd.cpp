@@ -23,4 +23,7 @@ int main()
 	output->grad = 1.0;
 	std::cout << "Topological Sort" << "\n";
 	output->backward();
+	std::vector<ValuePtr> x = { std::make_shared<Value>(2.0f), std::make_shared<Value>(3.0f) };
+	Neuron data(2);
+	data(x);
 }
