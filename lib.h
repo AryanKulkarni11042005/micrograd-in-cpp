@@ -20,7 +20,7 @@ using ValuePtr = std::shared_ptr<Value>;
 
 
 struct Value {
-	f32 data;
+	f32 data = 0.0f;
 	f32 grad = 0.0f;
 	std::unordered_set<ValuePtr> _children;  
 	std::function<void()> _backward = [] {};
@@ -61,16 +61,7 @@ struct Value {
 
 //---------Mathematical Functions starts here-----------
 //Tanh Activation Function
-inline ValuePtr activation(const ValuePtr& x)
-{
-	f32 t = std::tanh(x->data);
-	auto out = std::make_shared<Value>(t, std::unordered_set<ValuePtr>{ x }, "tanh");
-	Value* o = out.get();
-	out->_backward = [x, o, t] {
-		x->grad += (1.0f - t * t) * o->grad;
-		};
-	return out;
-}
+
 // Exponential e^(x)
 inline ValuePtr exponential(const ValuePtr& x)
 {
@@ -153,12 +144,25 @@ inline ValuePtr operator-(const ValuePtr& a, const ValuePtr& b)
 {
 	return a + (-b);
 }
+inline ValuePtr operator-(const ValuePtr& a, f32 b)
+{
+	return a - std::make_shared<Value>(b);
+}
 // Division: a / b = a * b^-1
 inline ValuePtr operator/(const ValuePtr& a, const ValuePtr& b)
 {
 	return a * power(b, -1.0f);
 }
-
+inline ValuePtr activation(const ValuePtr& x)
+{
+	f32 t = std::tanh(x->data);
+	auto out = std::make_shared<Value>(t, std::unordered_set<ValuePtr>{ x }, "tanh");
+	Value* o = out.get();
+	out->_backward = [x, o, t] {
+		x->grad += (1.0f - t * t) * o->grad;
+		};
+	return out;
+}
 // NEURON CLASS 
 inline f32 random_uniform(f32 lo, f32 hi)
 {
@@ -171,19 +175,95 @@ struct Neuron
 	std::vector<ValuePtr> w;
 	ValuePtr b;
 
-	Neuron(int nin)
+	Neuron(size_t nin)
 	{
-		for (int i = 0; i < nin; i++)
+		for (size_t i = 0; i < nin; i++)
 		{
 			w.push_back(std::make_shared<Value>(random_uniform(-1, 1)));
 		}
 		b = std::make_shared<Value>(random_uniform(-1, 1));
 	}
-	ValuePtr operator()(const std::vector<ValuePtr>& x)
+	ValuePtr operator()(const std::vector<ValuePtr>& x) const
 	{
+		ValuePtr act = b;
 		for (size_t i = 0; i < w.size(); i++)
-			std::cout << "(" << w[i]->data << ", " << x[i]->data << ")\n";
+		{
+			act = act + w[i] * x[i];
+		}
+		return activation(act);
+	}
+	std::vector<ValuePtr> parameters() const
+	{
+		std::vector<ValuePtr> params = w;
+		params.push_back(b);
+		return params;
+	}
 
-		return std::make_shared<Value>(0.0f);
+};
+
+
+struct Layer
+{
+	std::vector<Neuron> neurons;
+	Layer(size_t nin, size_t nout)
+	{
+		for (size_t i = 0; i < nout; i++)
+		{
+			neurons.emplace_back(nin);
+		}
+	}
+	std::vector<ValuePtr> operator()(const std::vector<ValuePtr>& x) const
+	{
+		std::vector<ValuePtr> outs;
+		outs.reserve(neurons.size());
+		for (const auto& n : neurons)
+		{
+			outs.push_back(n(x));
+		}
+		return outs;
+	}
+	std::vector<ValuePtr> parameters() const
+	{
+		std::vector<ValuePtr> params;
+		for (const auto& n : neurons)
+		{
+			auto p = n.parameters();
+			params.insert(params.end(), p.begin(), p.end());
+		}
+		return params;
+	}
+};
+
+struct MLP
+{
+	std::vector<Layer> layers;
+	
+	MLP(size_t nin, const std::vector<size_t>& nouts)
+	{
+		std::vector<size_t> sz;
+		sz.push_back(nin);
+		sz.insert(sz.end(), nouts.begin(), nouts.end());
+		for (size_t i = 0; i < nouts.size(); i++)
+		{
+			layers.emplace_back(sz[i], sz[i + 1]);
+		}
+	}
+	std::vector<ValuePtr> operator()(std::vector<ValuePtr> x) const
+	{
+		for (const auto& layer : layers)
+		{
+			x = layer(x);
+		}
+		return x;
+	}
+	std::vector<ValuePtr> parameters() const
+	{
+		std::vector<ValuePtr> params;
+		for (const auto& layer : layers)
+		{
+			auto p = layer.parameters();
+			params.insert(params.end(), p.begin(), p.end());
+		}
+		return params;
 	}
 };
